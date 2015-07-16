@@ -8,9 +8,15 @@ logging.captureWarnings(True)
 #urllib3.disable_warnings()
 
 
-#client = WO('webobservatory.soton.ac.uk', '55590b16a7f6527a06ebe96d', 'e4b72c8cb25d32ba', 'jiadi.yao@gmail.com','qwer1234' )
-client = WO('dev-001.ecs.soton.ac.uk:3443', '55590b16a7f6527a06ebe96d', 'e4b72c8cb25d32ba', 'jiadi.yao@gmail.com','qwer1234' )
-#client = WO('http://localhost:9090', '55590b16a7f6527a06ebe96d', 'e4b72c8cb25d32ba', 'jiadi.yao@gmail.com','qwer1234' )
+
+appid = ""
+appsec = "" 
+username = ""
+password = ""
+
+
+
+client = WO('webobservatory.soton.ac.uk', appid, appsec, username ,password )
 
 ##login after the client creation
 client.login()
