@@ -1,34 +1,51 @@
 import requests
 import json
-from socketIO_client import SocketIO, LoggingNamespace
-import urllib3
-urllib3.disable_warnings()
+from socketIO_client import SocketIO, LoggingNamespace, BaseNamespace
+#import urllib3
+#urllib3.disable_warnings()
+import logging
+###uncomment for printing debug info
+#logging.getLogger('requests').setLevel(logging.WARNING)
+#logging.basicConfig(level=logging.DEBUG)
+logging.captureWarnings(True)
+
 
 class WO:
-    def __init__(self, base, client_id, client_secret, username, password):
-    
-        self.base = base ## base is in the format of http://webobservatory.soton.ac.uk
+    def __init__(self, hostname, client_id, client_secret, username, password):
+
+        self.hostname = hostname
+        self.base = "https://"+hostname ## self.base contains protocol
+        self.port = 443
+
+
+        h = hostname.split(':')
+#        print len(h)
+        if len(h)==2:
+                self.hostname = h[0]
+                self.port = int(h[1])
+                self.base = "https://"+h[0]
+
         self.client_id = client_id
         self.client_secret = client_secret
         self.username = username
         self.password = password
         self.accessToken=''
-        
-        
+
+
     def login(self):
-        tokenurl = self.base+'/oauth/token'
+        tokenurl = self.base+':'+str(self.port)+'/oauth/token'
         parameters = {'grant_type':'password','client_id':self.client_id, 'client_secret':self.client_secret, 'username':self.username, 'password':self.password}
-        
-        r = requests.post(tokenurl, data=parameters)
-        print r.status_code
-        print r.url
-        print r.headers
-        print r.content
-        
+
+        r = requests.post(tokenurl, data=parameters, verify=False)
+#        print r.status_code
+#        print r.url
+#        print r.headers
+#        print r.content
+
         if (r.status_code == 200):
             data = json.loads(r.content)
             self.accessToken = data['access_token']
-        
+
 
 
     #query a dataset identified by dataset id
@@ -43,16 +60,17 @@ class WO:
             d = {'query':options}
         #print d
         if (self.accessToken):
-            url= self.base +'/api/wo/'+ id + '/endpoint'
+            url= self.base+':'+str(self.port) +'/api/wo/'+ id + '/endpoint'
             headers={ 'Authorization': 'Bearer ' + self.accessToken}
-            r= requests.get(url,params=d, headers=headers)
-            print r.status_code
-            print r.url
-            print r.headers
-            print r.content
-            
-        
-        
+            r= requests.get(url,params=d, headers=headers,verify=False)
+#            print r.status_code
+#            print r.url
+#            print r.headers
+#            print r.content
+            return r.content
+
+
+
     #id: dataset id;
     #options: AMQP exchange name
     #callback(err,data,stream)
@@ -66,88 +84,54 @@ class WO:
 
 
         if (self.accessToken):
-            url= self.base +'/api/wo/'+ id + '/endpoint'
+            url= self.base+':'+str(self.port)+'/api/wo/'+ id + '/endpoint'
             headers={ 'Authorization': 'Bearer ' + self.accessToken}
-            r= requests.get(url,params=d, headers=headers)
-            
-            if (r.status_code == 200):
+            r= requests.get(url,params=d, headers=headers, verify=False)
+
+        if (r.status_code == 200):
                 sid = r.content
-                print sid
+#                print "sid:---"+sid
+#                sio = 'http://webobservatory.soton.ac.uk'#+sid
+                #sio = 'dev-001.ecs.soton.ac.uk'
+                #print sio
+#                class Namespace(BaseNamespace):
+#                    def on_connect(self):
+#                        print '[Connected]'
+
+                class dataNamespace(BaseNamespace):
+                    #def on_aaa_response(self, *args):
+                    #    print('on_aaa_response', args)
+                    def on_connect(self):
+                        print '[Connected]'
+                        pass
+
                 def process(data):
-                    print 'here'
-                    print data
-                    #callback(data)
-                with SocketIO('https://webobservatory.soton.ac.uk/', 443, LoggingNamespace) as socketIO:
-                    socketIO.on('chunk',process)
-                #socketIO.wait(seconds=1)
+#                    print "process data"
+#                    print data
+                    callback(False, data,socketIO)
 
 
-'''
-		if (token)
-		{
-			$.ajax(
-			{
-				type: 'get',
-				url: woHost +'/api/wo/'+ id + '/endpoint',
-				data: opts,
-				headers:
-				{
-					Authorization: 'Bearer ' + token
-				}
-			}).done(function(sid)
-				{
-					//console.log(callback);
-					if (sid){
-						//try to get the stream data use socket.io
-						var socket = io.connect('https://webobservatory.soton.ac.uk/' + sid);
-						//console.log(socket);
-						
-						socket.on('chunk', function (data) {
-						//console.log(data);
-						
-						//return the data and the stream object
-						callback(null,data,socket);
-						
-						});
-						
-						//add this stream to datastreams variable
-						
-						if (typeof datastreams[id] == "undefined")
-						{
-							
-							datastreams[id] = [socket];
-							
-						}
-						else
-						{
-							
-							datastreams[id].push(socket);
-						}
-						
-						
-						
-					}
-				}
-				);
+#               socketIO = SocketIO(sio,443,LoggingNamespace,verify=False)
+                socketIO = SocketIO(self.base,self.port, verify=False)
+#                socketIO = SocketIO(self.base, 9090)
+                data_namespace = socketIO.define(dataNamespace,'/'+sid)
 
-			
-			//console.log(id);
-			//console.log(options);
-			//console.log(woHost +'/api/wo/'+ id + '/endpoint');
-			
-		}
-		else
-		{
-			//TODO return an error code via callback
-			//console.log("need to login before making query");
-			callback("Not logged in");
-			location.href=authURL;
-		} 
-'''
-        
-        
-        
-        
-        
-        
-        
+
+                #data_namespace.emit('stop')
+                data_namespace.on('chunk',process)
+#                data_namespace.emit('stop')
+#                socketIO.emit("stop")
+#                socketIO.wait(seconds=1)
+#                data_namespace.wait()
+                socketIO.wait()
+
+
+
+
+
+
+
+
+
+
+
