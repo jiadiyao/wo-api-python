@@ -45,8 +45,9 @@ class WO:
         if (r.status_code == 200):
             data = json.loads(r.content)
             self.accessToken = data['access_token']
-
-
+            return ''
+        else:
+            return "[ERROR] Login Failed: Failed to obtain access token."
 
     #query a dataset identified by dataset id
     #options can be a string representing the query : options = 'SELECT * WHERE {  ?subject rdf:type ?class} LIMIT 10'
@@ -67,8 +68,9 @@ class WO:
 #            print r.url
 #            print r.headers
 #            print r.content
-            return r.content
-
+            return '', r.content
+        else:
+            return "[ERROR] Query Failed:  No access token. Try  wo.login() first. ", None
 
 
     #id: dataset id;
@@ -86,9 +88,10 @@ class WO:
         if (self.accessToken):
             url= self.base+':'+str(self.port)+'/api/wo/'+ id + '/endpoint'
             headers={ 'Authorization': 'Bearer ' + self.accessToken}
+            
             r= requests.get(url,params=d, headers=headers, verify=False)
-
-        if (r.status_code == 200):
+            
+        if ('r' in locals() and r.status_code == 200):
                 sid = r.content
 #                print "sid:---"+sid
 #                sio = 'http://webobservatory.soton.ac.uk'#+sid
@@ -124,7 +127,8 @@ class WO:
 #                socketIO.wait(seconds=1)
 #                data_namespace.wait()
                 socketIO.wait()
-
+        else:
+            callback("[ERROR] Open Stream Failed: Stream opening failed for:"+id,None,None)
 
 
 
